@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1E7B57">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Daily Plate">
+<meta name="description" content="Daily Plate: a simple calorie counter with a searchable food list.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root { color-scheme: light; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<title>Daily Plate</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: single narrow column, phone-first. Ring summary on top, add-food panel, meal log, 7-day bars, goal settings. */
+:root {
+  --bg: #F2F5F3;
+  --surface: #FFFFFF;
+  --ink: #13211B;
+  --muted: #5B6B63;
+  --line: #DCE4DF;
+  --track: #E3EAE5;
+  --accent: #1E7B57;
+  --accent-ink: #FFFFFF;
+  --over: #C93C20;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1613; --surface: #18221D; --ink: #E8F0EB; --muted: #93A59B;
+    --line: #27352E; --track: #243029; --accent: #4CC795; --accent-ink: #0B1410; --over: #FF7A5C;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1613; --surface: #18221D; --ink: #E8F0EB; --muted: #93A59B;
+  --line: #27352E; --track: #243029; --accent: #4CC795; --accent-ink: #0B1410; --over: #FF7A5C;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  padding-inline: 16px; padding-block: 20px 48px;
+}
+.wrap { max-width: 560px; margin-inline: auto; display: flex; flex-direction: column; gap: 14px; }
+h1, h2, .num { font-family: var(--font-display); }
+h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+h2 { font-size: 15px; margin: 0; font-weight: 700; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.icon-btn { background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; color: var(--muted); }
+.icon-btn:hover { color: var(--ink); border-color: var(--muted); }
+.icon-btn:disabled { opacity: .35; cursor: default; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.datebar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.datebar .label { font-weight: 600; text-align: center; flex: 1; min-width: 0; }
+
+.summary { display: grid; grid-template-columns: 170px 1fr; gap: 16px; align-items: center; }
+.ring { position: relative; width: 170px; height: 170px; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.ring .big { font-size: 38px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.ring .small { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.stats { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.stat { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.stat:last-child { border-bottom: 0; padding-bottom: 0; }
+.stat span:first-child { color: var(--muted); }
+.stat b { font-variant-numeric: tabular-nums; }
+.over { color: var(--over); }
+@media (max-width: 440px) { .summary { grid-template-columns: 1fr; justify-items: center; } .stats { width: 100%; } }
+
+.add { display: flex; flex-direction: column; gap: 12px; }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--track); padding: 4px; border-radius: 11px; }
+.seg button { border: 0; background: transparent; padding: 7px 4px; border-radius: 8px; color: var(--muted); font-weight: 500; font-size: 14px; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 6px 11px; font-size: 13.5px; }
+.chip:hover { border-color: var(--accent); }
+.chip i { font-style: normal; color: var(--muted); margin-left: 4px; font-variant-numeric: tabular-nums; }
+.row { display: flex; gap: 8px; }
+.row input { min-width: 0; }
+input, select { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; }
+.row .kcal { width: 104px; flex: none; }
+.primary { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 600; flex: none; }
+.primary:hover { filter: brightness(1.06); }
+.ghost { background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 9px 14px; }
+
+.row .qty { width: 84px; flex: none; }
+#addForm { display: flex; flex-direction: column; gap: 10px; }
+#fKcal { flex: 1; width: auto; font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+.hint { font-size: 13.5px; color: var(--muted); min-height: 1.4em; }
+.hint b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.linkbtn { background: transparent; border: 0; padding: 0; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+h2.sub { font-size: 13px; color: var(--muted); font-weight: 600; margin-top: 4px; }
+.results { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.result-row { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: transparent; border: 0; border-top: 1px solid var(--line); padding: 10px 12px; }
+.result-row:first-child { border-top: 0; }
+.result-row:hover, .result-row:focus-visible { background: var(--track); }
+.result-row .rn { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.result-row .rn small { display: block; color: var(--muted); font-size: 12.5px; }
+.result-row .rk { font-variant-numeric: tabular-nums; font-weight: 600; }
+.result-row .plus { color: var(--accent); font-weight: 600; }
+.no-match { padding: 12px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--muted); }
+.meal + .meal { margin-top: 14px; }
+.meal-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.meal-head span { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 14px; }
+.entry { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); }
+.entry .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.entry .k { font-variant-numeric: tabular-nums; color: var(--muted); }
+.entry button { border: 0; background: transparent; color: var(--muted); padding: 4px 8px; border-radius: 8px; font-size: 18px; line-height: 1; }
+.entry button:hover { color: var(--over); }
+.empty-meal { color: var(--muted); font-size: 13.5px; padding: 6px 0; border-top: 1px solid var(--line); }
+.banner { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: var(--track); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; }
+
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; height: 140px; align-items: end; position: relative; margin-top: 14px; }
+.goalline { position: absolute; left: 0; right: 0; border-top: 1.5px dashed var(--muted); opacity: .7; pointer-events: none; }
+.goalline em { position: absolute; right: 0; top: -18px; font-style: normal; font-size: 11px; color: var(--muted); background: var(--surface); padding-left: 4px; }
+.col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; gap: 4px; min-width: 0; }
+.bar { width: 100%; max-width: 34px; background: var(--accent); border-radius: 6px 6px 2px 2px; min-height: 2px; }
+.bar.over { background: var(--over); }
+.col.sel .bar { outline: 2px solid var(--ink); outline-offset: 1px; }
+.col small { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.daylabels { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.avg { margin: 12px 0 0; color: var(--muted); font-size: 13.5px; }
+
+.settings { display: flex; flex-direction: column; gap: 12px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 440px) { .grid2 { grid-template-columns: 1fr; } }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); min-width: 0; }
+.result { font-family: var(--font-display); font-size: 17px; }
+.note { font-size: 12.5px; color: var(--muted); margin: 0; }
+.foot { text-align: center; padding-top: 4px; }
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <h1>Daily Plate</h1>
+    <button class="icon-btn" id="settingsBtn" aria-expanded="false" aria-controls="settingsPanel">Goal</button>
+  </div>
+
+  <section class="panel settings" id="settingsPanel" hidden>
+    <h2>Daily calorie goal</h2>
+    <div class="row">
+      <input id="goalInput" type="number" inputmode="numeric" min="800" max="6000" step="10" aria-label="Daily calorie goal in kcal">
+      <button class="primary" id="saveGoal">Save</button>
+    </div>
+    <h2>Estimate a goal</h2>
+    <div class="grid2">
+      <label for="cSex">Sex
+        <select id="cSex"><option value="f">Female</option><option value="m">Male</option></select>
+      </label>
+      <label for="cAge">Age
+        <input id="cAge" type="number" inputmode="numeric" min="15" max="100" placeholder="years">
+      </label>
+      <label for="cH">Height
+        <input id="cH" type="number" inputmode="numeric" min="120" max="230" placeholder="cm">
+      </label>
+      <label for="cW">Weight
+        <input id="cW" type="number" inputmode="decimal" min="30" max="250" placeholder="kg">
+      </label>
+      <label for="cAct">Activity
+        <select id="cAct">
+          <option value="1.2">Mostly sitting</option>
+          <option value="1.375">Light exercise 1-3 days</option>
+          <option value="1.55">Moderate exercise 3-5 days</option>
+          <option value="1.725">Hard exercise 6-7 days</option>
+        </select>
+      </label>
+      <label for="cAim">Aim
+        <select id="cAim">
+          <option value="-500">Lose about 0.5 kg a week</option>
+          <option value="0">Maintain weight</option>
+          <option value="300">Gain slowly</option>
+        </select>
+      </label>
+    </div>
+    <div class="row" style="align-items:center; justify-content:space-between; flex-wrap:wrap">
+      <div class="result" id="estimate">Fill in the fields above</div>
+      <button class="ghost" id="useEstimate" disabled>Use this goal</button>
+    </div>
+    <p class="note">Uses the Mifflin-St Jeor equation. It is an estimate, and the result never goes below 1,200 kcal. For medical conditions or large weight changes, check your target with a doctor or dietitian.</p>
+  </section>
+
+  <section class="panel">
+    <div class="datebar">
+      <button class="icon-btn" id="prevDay" aria-label="Previous day">&larr;</button>
+      <div class="label" id="dayLabel"></div>
+      <button class="icon-btn" id="nextDay" aria-label="Next day">&rarr;</button>
+    </div>
+  </section>
+
+  <section class="panel summary" aria-live="polite">
+    <div class="ring">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle cx="60" cy="60" r="50" fill="none" stroke="var(--track)" stroke-width="12"></circle>
+        <circle id="ringArc" cx="60" cy="60" r="50" fill="none" stroke="var(--accent)" stroke-width="12" stroke-linecap="round" stroke-dasharray="0 314.16"></circle>
+      </svg>
+      <div class="center">
+        <div class="big num" id="remainBig">0</div>
+        <div class="small" id="remainSmall">kcal left</div>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>Goal</span><b id="sGoal"></b></div>
+      <div class="stat"><span>Eaten</span><b id="sEaten"></b></div>
+      <div class="stat"><span>Percent of goal</span><b id="sPct"></b></div>
+    </div>
+  </section>
+
+  <section class="panel add">
+    <h2>Add food</h2>
+    <div class="seg" id="mealSeg" role="group" aria-label="Meal">
+      <button type="button" data-meal="breakfast" aria-pressed="false">Breakfast</button>
+      <button type="button" data-meal="lunch" aria-pressed="false">Lunch</button>
+      <button type="button" data-meal="dinner" aria-pressed="false">Dinner</button>
+      <button type="button" data-meal="snack" aria-pressed="false">Snack</button>
+    </div>
+    <form id="addForm" autocomplete="off">
+      <div class="row">
+        <input id="fName" type="text" placeholder="Type a food, e.g. egg, rice, banana" maxlength="60" aria-label="Food name" autocomplete="off" required>
+        <input id="fQty" class="qty" type="number" inputmode="decimal" min="0.5" max="20" step="0.5" value="1" aria-label="Number of servings" title="Servings">
+      </div>
+      <div class="results" id="results" hidden></div>
+      <div class="hint" id="hint" aria-live="polite">Calories appear as you type.</div>
+      <div class="row">
+        <input id="fKcal" class="kcal" type="number" inputmode="numeric" min="1" max="5000" placeholder="Calories (kcal)" aria-label="Calories">
+        <button class="primary" type="submit">Add</button>
+      </div>
+    </form>
+    <h2 class="sub">Quick add</h2>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <section class="panel">
+    <div id="sampleBanner" class="banner" hidden style="margin-bottom:12px">
+      <span>These are sample entries so you can see how it works.</span>
+      <button class="ghost" id="clearSample" type="button">Clear samples</button>
+    </div>
+    <div id="log"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Last 7 days</h2>
+    <div class="week" id="week"></div>
+    <div class="daylabels" id="weekLabels"></div>
+    <p class="avg" id="avg"></p>
+  </section>
+  <p class="note foot">Calorie values are typical averages and will vary with brand and portion. This app is for general information and is not medical or dietary advice. Your entries are stored only on this device.</p>
+</div>
+
+<script>
+(function () {
+  var KEY = "daily-plate-v1";
+  var MEALS = [["breakfast", "Breakfast"], ["lunch", "Lunch"], ["dinner", "Dinner"], ["snack", "Snack"]];
+  var FOODS = [
+    ["Boiled egg", 78], ["Cooked rice, 1 cup", 205], ["Banana", 105], ["Oatmeal, 1 cup", 154],
+    ["Chicken breast, 150 g", 248], ["Apple", 95], ["Bread slice", 80], ["Milk, 1 cup", 122],
+    ["Fried egg", 90], ["Pasta, 1 cup", 220], ["Coffee, milk and sugar", 60], ["Mixed salad, dressed", 150]
+  ];
+  var SAMPLE = [
+    { name: "Oatmeal, 1 cup", kcal: 154, meal: "breakfast" },
+    { name: "Banana", kcal: 105, meal: "breakfast" },
+    { name: "Chicken breast, 150 g", kcal: 248, meal: "lunch" },
+    { name: "Cooked rice, 1 cup", kcal: 205, meal: "lunch" },
+    { name: "Apple", kcal: 95, meal: "snack" }
+  ];
+
+  var state = { goal: 1800, days: {}, sample: false };
+  var today = dkey(new Date());
+  var viewDay = today;
+  var meal = defaultMeal();
+
+  function dkey(d) {
+    var m = d.getMonth() + 1, day = d.getDate();
+    return d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (day < 10 ? "0" : "") + day;
+  }
+  function parse(k) { var p = k.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function shift(k, n) { var d = parse(k); d.setDate(d.getDate() + n); return dkey(d); }
+  function defaultMeal() {
+    var h = new Date().getHours();
+    return h < 11 ? "breakfast" : h < 15 ? "lunch" : h < 18 ? "snack" : "dinner";
+  }
+  function uid() { return Math.random().toString(36).slice(2, 9); }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function fmt(n) { return Math.round(n).toLocaleString("en-US"); }
+  function $(id) { return document.getElementById(id); }
+
+  function load() {
+    var raw = null;
+    try { raw = localStorage.getItem(KEY); } catch (e) {}
+    if (raw) {
+      try {
+        var s = JSON.parse(raw);
+        if (s && typeof s.goal === "number" && s.days) { state = s; return; }
+      } catch (e) {}
+    }
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  function entries(k) { return state.days[k] || []; }
+  function total(k) { return entries(k).reduce(function (a, e) { return a + e.kcal; }, 0); }
+
+  function dayName(k) {
+    if (k === today) return "Today";
+    if (k === shift(today, -1)) return "Yesterday";
+    return parse(k).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  }
+
+  function render() {
+    var goal = state.goal, eaten = total(viewDay), left = goal - eaten;
+    $("dayLabel").textContent = dayName(viewDay);
+    $("nextDay").disabled = viewDay >= today;
+
+    var frac = Math.min(eaten / goal, 1), circ = 2 * Math.PI * 50, over = eaten > goal;
+    var arc = $("ringArc");
+    arc.setAttribute("stroke-dasharray", (circ * frac).toFixed(1) + " " + circ.toFixed(1));
+    arc.setAttribute("stroke", over ? "var(--over)" : "var(--accent)");
+    var big = $("remainBig");
+    big.textContent = fmt(Math.abs(left));
+    big.className = "big num" + (over ? " over" : "");
+    $("remainSmall").textContent = over ? "kcal over" : "kcal left";
+    $("sGoal").textContent = fmt(goal) + " kcal";
+    $("sEaten").textContent = fmt(eaten) + " kcal";
+    var pct = $("sPct"); pct.textContent = Math.round(eaten / goal * 100) + "%";
+    pct.className = over ? "over" : "";
+
+    var segs = $("mealSeg").querySelectorAll("button");
+    for (var i = 0; i < segs.length; i++) segs[i].setAttribute("aria-pressed", segs[i].dataset.meal === meal ? "true" : "false");
+
+    var hasSample = false;
+    var html = "";
+    MEALS.forEach(function (m) {
+      var list = entries(viewDay).filter(function (e) { return e.meal === m[0]; });
+      var sub = list.reduce(function (a, e) { return a + e.kcal; }, 0);
+      html += '<div class="meal"><div class="meal-head"><h2>' + m[1] + "</h2><span>" + fmt(sub) + " kcal</span></div>";
+      if (!list.length) html += '<div class="empty-meal">Nothing logged</div>';
+      list.forEach(function (e) {
+        if (e.sample) hasSample = true;
+        html += '<div class="entry"><span class="name">' + esc(e.name) + '</span><span class="k">' + fmt(e.kcal) +
+          '</span><button type="button" data-del="' + e.id + '" aria-label="Remove ' + esc(e.name) + '">&times;</button></div>';
+      });
+      html += "</div>";
+    });
+    $("log").innerHTML = html;
+    $("sampleBanner").hidden = !(state.sample && hasSample);
+
+    renderWeek();
+  }
+
+  function renderWeek() {
+    var days = [], max = state.goal * 1.25;
+    for (var i = 6; i >= 0; i--) { var k = shift(today, -i); days.push({ k: k, t: total(k) }); }
+    days.forEach(function (d) { if (d.t > max) max = d.t; });
+    var H = 112; // drawable height in px for bars
+    var html = "", labels = "", sum = 0, n = 0;
+    days.forEach(function (d) {
+      var h = Math.round(d.t / max * H);
+      if (d.t > 0) { sum += d.t; n++; }
+      html += '<div class="col' + (d.k === viewDay ? " sel" : "") + '"><small>' + (d.t ? fmt(d.t) : "") + '</small><div class="bar' + (d.t > state.goal ? " over" : "") + '" style="height:' + (d.t ? h : 2) + 'px"></div></div>';
+      labels += "<div>" + parse(d.k).toLocaleDateString("en-US", { weekday: "short" }) + "</div>";
+    });
+    var gl = Math.round(state.goal / max * H);
+    html += '<div class="goalline" style="bottom:' + gl + 'px"><em>goal ' + fmt(state.goal) + "</em></div>";
+    $("week").innerHTML = html;
+    $("weekLabels").innerHTML = labels;
+    $("avg").textContent = n ? "Average on logged days: " + fmt(sum / n) + " kcal." : "Log a day to see your average.";
+  }
+
+  function addEntry(name, kcal) {
+    if (!state.days[viewDay]) state.days[viewDay] = [];
+    state.days[viewDay].push({ id: uid(), name: name, kcal: kcal, meal: meal });
+    save(); render();
+  }
+
+  // events
+  $("chips").innerHTML = FOODS.map(function (f, i) {
+    return '<button type="button" class="chip" data-i="' + i + '">' + esc(f[0]) + "<i>" + f[1] + "</i></button>";
+  }).join("");
+  $("chips").addEventListener("click", function (ev) {
+    var b = ev.target.closest(".chip"); if (!b) return;
+    var f = FOODS[+b.dataset.i]; addEntry(f[0], f[1]);
+  });
+  // searchable food list: [name, serving, kcal]
+  var DB = [
+    ["Egg, boiled", "1 large", 78], ["Egg, fried", "1 large", 90], ["Omelette", "2 eggs", 190], ["Egg white", "1 large", 17],
+    ["Cooked white rice", "1 cup", 205], ["Cooked brown rice", "1 cup", 215], ["Fried rice", "1 cup", 240], ["Congee (rice porridge)", "1 cup", 120],
+    ["Oatmeal", "1 cup cooked", 154], ["Cornflakes", "1 cup", 100], ["Bread, white", "1 slice", 80], ["Bread, whole wheat", "1 slice", 70],
+    ["Pandesal", "1 roll", 90], ["Pancake", "1 medium", 90], ["Toast with butter", "1 slice", 110], ["Peanut butter", "1 tbsp", 95],
+    ["Pasta, cooked", "1 cup", 220], ["Instant noodles", "1 pack", 380], ["Rice noodles", "1 cup", 190], ["Potato, boiled", "1 medium", 160],
+    ["French fries", "medium serving", 365], ["Sweet potato", "1 medium", 115], ["Corn on the cob", "1 ear", 90], ["Tortilla", "1 medium", 140],
+    ["Chicken breast, cooked", "100 g", 165], ["Chicken thigh, cooked", "100 g", 210], ["Fried chicken", "1 piece", 320], ["Pork chop, grilled", "100 g", 230],
+    ["Pork belly, cooked", "100 g", 520], ["Beef, lean, cooked", "100 g", 250], ["Ground beef, cooked", "100 g", 270], ["Bacon", "2 slices", 90],
+    ["Sausage", "1 link", 180], ["Hotdog", "1 piece", 150], ["Ham", "1 slice", 45], ["Canned tuna", "1 can (140 g)", 130],
+    ["Sardines in tomato sauce", "1 can", 190], ["Salmon, cooked", "100 g", 205], ["Tilapia, cooked", "100 g", 130], ["Shrimp, cooked", "100 g", 100],
+    ["Tofu, firm", "100 g", 145], ["Lentils, cooked", "1 cup", 230], ["Chickpeas, cooked", "1 cup", 270], ["Black beans, cooked", "1 cup", 225],
+    ["Mung beans, cooked", "1 cup", 210], ["Peanuts", "30 g", 170], ["Almonds", "30 g", 175], ["Cashews", "30 g", 165],
+    ["Banana", "1 medium", 105], ["Apple", "1 medium", 95], ["Orange", "1 medium", 62], ["Mango", "1 cup sliced", 100],
+    ["Pineapple", "1 cup", 82], ["Papaya", "1 cup", 55], ["Watermelon", "1 cup", 46], ["Grapes", "1 cup", 100],
+    ["Strawberries", "1 cup", 50], ["Avocado", "half", 160], ["Coconut water", "1 cup", 45], ["Dried mango", "30 g", 100],
+    ["Broccoli, cooked", "1 cup", 55], ["Carrot", "1 medium", 25], ["Cabbage, cooked", "1 cup", 35], ["Spinach, cooked", "1 cup", 40],
+    ["Tomato", "1 medium", 22], ["Cucumber", "1 cup sliced", 16], ["Eggplant, cooked", "1 cup", 35], ["Green beans, cooked", "1 cup", 44],
+    ["Mixed salad with dressing", "1 bowl", 150], ["Mixed vegetables, stir-fried", "1 cup", 90],
+    ["Milk, whole", "1 cup", 150], ["Milk, low fat", "1 cup", 105], ["Yogurt, plain", "1 cup", 150], ["Cheddar cheese", "1 slice", 110],
+    ["Butter", "1 tbsp", 100], ["Cooking oil", "1 tbsp", 120], ["Ice cream", "1/2 cup", 140], ["Chocolate bar", "40 g", 210],
+    ["Cookies", "2 pieces", 150], ["Potato chips", "30 g", 160], ["Cake slice", "1 slice", 350], ["Doughnut", "1 piece", 250],
+    ["Sugar", "1 tsp", 16], ["Honey", "1 tbsp", 64], ["Coffee, black", "1 cup", 2], ["Coffee with milk and sugar", "1 cup", 60],
+    ["Tea, unsweetened", "1 cup", 2], ["Soda", "1 can (330 ml)", 140], ["Orange juice", "1 cup", 112], ["Beer", "1 bottle (330 ml)", 150],
+    ["Wine", "1 glass (150 ml)", 125], ["Pizza", "1 slice", 285], ["Burger, fast food", "1 regular", 300], ["Sandwich, ham and cheese", "1 sandwich", 330],
+    ["Sushi roll", "6 pieces", 250], ["Dumplings", "4 pieces", 220], ["Spring rolls, fried", "2 pieces", 200], ["Chicken soup", "1 bowl", 120]
+  ];
+
+  DB = DB.concat([
+    ["Adobo, chicken", "1 serving", 320], ["Adobo, pork", "1 serving", 390], ["Sinigang na baboy", "1 bowl", 290], ["Sinigang na hipon", "1 bowl", 170],
+    ["Tinola", "1 bowl", 190], ["Kare-kare", "1 serving", 480], ["Lechon kawali", "100 g", 480], ["Sisig", "1 serving", 420],
+    ["Pancit canton", "1 cup", 260], ["Pancit bihon", "1 cup", 230], ["Lumpiang shanghai", "3 pieces", 150], ["Bangus, fried", "1 piece", 250],
+    ["Daing na bangus", "1 piece", 260], ["Tapsilog", "1 plate", 720], ["Longsilog", "1 plate", 760], ["Tocino", "2 pieces", 180],
+    ["Tocino meal with egg and rice", "1 plate", 650], ["Champorado", "1 cup", 220], ["Arroz caldo", "1 bowl", 250], ["Lugaw", "1 bowl", 170],
+    ["Puto", "1 piece", 70], ["Kutsinta", "1 piece", 60], ["Bibingka", "1 piece", 220], ["Halo-halo", "1 glass", 380],
+    ["Turon", "1 piece", 200], ["Banana cue", "1 piece", 190], ["Leche flan", "1 slice", 230], ["Ensaymada", "1 piece", 280],
+    ["Balut", "1 egg", 190], ["Dinuguan", "1 serving", 250], ["Laing", "1 serving", 260], ["Pinakbet", "1 cup", 120],
+    ["Ginataang gulay", "1 cup", 200], ["Monggo soup", "1 bowl", 210], ["Bulalo", "1 bowl", 330], ["Nilaga", "1 bowl", 280],
+    ["Menudo", "1 serving", 330], ["Afritada", "1 serving", 300], ["Caldereta", "1 serving", 380], ["Embutido", "1 slice", 140],
+    ["Longganisa", "1 link", 150], ["Tuyo (dried fish)", "2 pieces", 100], ["Danggit", "30 g", 110], ["Itlog na maalat", "1 egg", 95],
+    ["Siopao", "1 piece", 300], ["Siomai", "4 pieces", 190], ["Fishball", "5 pieces", 120], ["Kwek-kwek", "5 pieces", 250],
+    ["Isaw", "1 stick", 120], ["Taho", "1 cup", 170], ["Pan de sal with cheese", "2 pieces", 240], ["Spanish bread", "1 piece", 190],
+    ["Chicken curry", "1 cup", 300], ["Chicken teriyaki", "1 serving", 330], ["Beef stew", "1 cup", 280], ["Meatballs", "3 pieces", 210],
+    ["Grilled fish", "100 g", 150], ["Fried fish", "100 g", 230], ["Fish fillet, breaded", "1 piece", 250], ["Squid, grilled", "100 g", 120],
+    ["Crab, cooked", "100 g", 100], ["Mussels, cooked", "100 g", 170], ["Egg salad sandwich", "1 sandwich", 340], ["Tuna sandwich", "1 sandwich", 320],
+    ["Grilled cheese sandwich", "1 sandwich", 380], ["Club sandwich", "1 sandwich", 550], ["Chicken burger", "1 sandwich", 450], ["Cheeseburger", "1 sandwich", 320],
+    ["Hot dog with bun", "1 piece", 290], ["Fried chicken, drumstick", "1 piece", 190], ["Chicken nuggets", "6 pieces", 280], ["Chicken wings", "3 pieces", 270],
+    ["Pizza, pepperoni", "1 slice", 310], ["Lasagna", "1 slice", 380], ["Spaghetti with meat sauce", "1 cup", 320], ["Carbonara", "1 cup", 430],
+    ["Macaroni salad", "1/2 cup", 200], ["Potato salad", "1/2 cup", 180], ["Coleslaw", "1/2 cup", 150], ["Caesar salad", "1 bowl", 330],
+    ["Burrito", "1 piece", 450], ["Taco", "1 piece", 170], ["Quesadilla", "1 piece", 380], ["Pad thai", "1 cup", 360],
+    ["Ramen", "1 bowl", 450], ["Beef pho", "1 bowl", 400], ["Bibimbap", "1 bowl", 560], ["Kimchi", "1/2 cup", 15],
+    ["Miso soup", "1 cup", 40], ["Tempura", "3 pieces", 200], ["Katsu, pork", "1 piece", 400], ["Takoyaki", "4 pieces", 220],
+    ["Granola", "1/2 cup", 210], ["Muesli", "1/2 cup", 150], ["Cereal with milk", "1 bowl", 220], ["Waffle", "1 piece", 220],
+    ["Croissant", "1 piece", 230], ["Bagel", "1 piece", 270], ["Muffin", "1 piece", 350], ["English muffin", "1 piece", 130],
+    ["Cream cheese", "1 tbsp", 50], ["Mayonnaise", "1 tbsp", 95], ["Ketchup", "1 tbsp", 20], ["Soy sauce", "1 tbsp", 10],
+    ["Olive oil", "1 tbsp", 120], ["Margarine", "1 tbsp", 100], ["Jam", "1 tbsp", 55], ["Condensed milk", "1 tbsp", 60],
+    ["Evaporated milk", "1/4 cup", 85], ["Soy milk", "1 cup", 100], ["Almond milk, unsweetened", "1 cup", 40], ["Oat milk", "1 cup", 120],
+    ["Greek yogurt", "1 cup", 130], ["Cottage cheese", "1/2 cup", 110], ["Mozzarella", "30 g", 85], ["Parmesan", "1 tbsp", 22],
+    ["Whey protein shake", "1 scoop", 120], ["Protein bar", "1 bar", 210], ["Energy drink", "1 can", 110], ["Sports drink", "500 ml", 130],
+    ["Milk tea, pearls", "500 ml", 380], ["Iced coffee, sweetened", "1 glass", 150], ["Latte", "12 oz", 150], ["Cappuccino", "12 oz", 110],
+    ["Hot chocolate", "1 cup", 190], ["Lemonade", "1 cup", 100], ["Mango shake", "1 glass", 250], ["Buko juice", "1 cup", 50],
+    ["Gummy candy", "10 pieces", 140], ["Hard candy", "1 piece", 25], ["Popcorn", "3 cups", 95], ["Crackers", "5 pieces", 80],
+    ["Pretzels", "30 g", 110], ["Brownie", "1 piece", 240], ["Cupcake", "1 piece", 300], ["Pie slice", "1 slice", 320],
+    ["Macarons", "2 pieces", 140], ["Sweet corn, canned", "1/2 cup", 80], ["Peas, cooked", "1 cup", 135], ["Mushrooms, cooked", "1 cup", 45],
+    ["Onion, cooked", "1/2 cup", 45], ["Bell pepper", "1 medium", 30], ["Lettuce", "1 cup", 8], ["Kangkong, cooked", "1 cup", 25],
+    ["Squash, cooked", "1 cup", 80], ["Okra, cooked", "1 cup", 35], ["Cauliflower, cooked", "1 cup", 30], ["Zucchini, cooked", "1 cup", 30],
+    ["Blueberries", "1 cup", 85], ["Pear", "1 medium", 100], ["Peach", "1 medium", 60], ["Kiwi", "1 medium", 42],
+    ["Guava", "1 medium", 40], ["Lychee", "10 pieces", 66], ["Rambutan", "5 pieces", 40], ["Dragon fruit", "1 cup", 130],
+    ["Jackfruit", "1 cup", 155], ["Durian", "1 cup", 360], ["Lanzones", "10 pieces", 50], ["Calamansi juice", "1 glass", 40],
+    ["Raisins", "30 g", 90], ["Dates", "2 pieces", 130], ["Coconut meat", "30 g", 105], ["Chia seeds", "1 tbsp", 60],
+    ["Flaxseed", "1 tbsp", 55], ["Sunflower seeds", "30 g", 165], ["Walnuts", "30 g", 195], ["Pistachios", "30 g", 160],
+    ["Quinoa, cooked", "1 cup", 220], ["Couscous, cooked", "1 cup", 175], ["Sticky rice", "1 cup", 170], ["Garlic rice", "1 cup", 260],
+    ["Turkey breast, cooked", "100 g", 135], ["Lamb, cooked", "100 g", 290], ["Duck, roasted", "100 g", 335], ["Liver, cooked", "100 g", 175],
+    ["Tofu, fried", "100 g", 270], ["Tempeh", "100 g", 190], ["Hummus", "2 tbsp", 70], ["Falafel", "3 pieces", 170],
+    ["Vodka, gin or whisky", "1 shot", 100], ["Rum", "1 shot", 97], ["Cocktail", "1 glass", 180], ["Red Horse beer", "1 bottle", 190]
+  ]);
+
+  var selected = null, manual = false;
+  var sampleFn = null, sampleOff = false, status = "idle", errMsg = "", estTimer = null, estCtl = null;
+
+  if (window.claude && typeof window.claude.use === "function") {
+    window.claude.use("sample").then(function (fn) {
+      sampleFn = fn || null;
+      if (sampleFn && $("fName").value.trim() && !selected && !manual) { scheduleEstimate(false); updateHint(); }
+      else updateHint();
+    }).catch(function () {});
+  }
+
+  function labelOf(f) { return f[0] + " (" + f[1] + (f[3] ? ", est." : "") + ")"; }
+  function getQty() { var q = parseFloat($("fQty").value); return q > 0 ? q : 1; }
+  function findHits(q) {
+    var words = q.split(/\s+/);
+    var hits = DB.filter(function (f) {
+      var hay = (f[0] + " " + f[1]).toLowerCase();
+      return words.every(function (w) { return hay.indexOf(w) > -1; });
+    });
+    hits.sort(function (a, b) {
+      var as = a[0].toLowerCase().indexOf(words[0]) === 0 ? 0 : 1, bs = b[0].toLowerCase().indexOf(words[0]) === 0 ? 0 : 1;
+      return as - bs;
+    });
+    return hits.slice(0, 6);
+  }
+  function setKcal() {
+    if (manual) return;
+    $("fKcal").value = selected ? Math.max(1, Math.round(selected[2] * getQty())) : "";
+  }
+
+  // estimates for foods that are not in the list
+  function cancelEstimate() {
+    clearTimeout(estTimer); estTimer = null;
+    if (estCtl) { estCtl.abort(); estCtl = null; }
+    if (status === "wait" || status === "busy") status = "idle";
+  }
+  function scheduleEstimate(now) {
+    cancelEstimate();
+    var q = $("fName").value.trim();
+    if (!sampleFn || sampleOff || manual || selected || q.length < 3) return;
+    status = "wait";
+    estTimer = setTimeout(runEstimate, now ? 0 : 900);
+  }
+  function runEstimate() {
+    estTimer = null;
+    var q = $("fName").value.trim();
+    if (!sampleFn || !q || selected || manual) { status = "idle"; updateHint(); return; }
+    var key = q.toLowerCase();
+    status = "busy"; updateHint();
+    var ctl = new AbortController(); estCtl = ctl;
+    var prompt = "You are the calorie lookup inside a food diary app. The person typed this food or meal: \"" + q + "\".\n" +
+      "Estimate the calories for one typical serving. If the text includes an amount (for example 2 slices or 150 g), use that amount as the serving. " +
+      "Use typical values for common preparation.\n" +
+      "Reply with only JSON: {\"food\": short food name, \"serving\": serving size in plain words, \"kcal\": whole number}. " +
+      "If the text is not a food or drink, reply {\"kcal\": null}.";
+    sampleFn.json(prompt, { modelTier: "quick", signal: ctl.signal }).then(function (d) {
+      if (estCtl !== ctl) return;
+      estCtl = null;
+      if ($("fName").value.trim().toLowerCase() !== key || selected || manual) { status = "idle"; return; }
+      var k = d ? Math.round(Number(d.kcal)) : 0;
+      if (!(k > 0 && k <= 5000)) { status = "error"; errMsg = "Couldn't estimate that one. Enter the calories yourself."; updateHint(); return; }
+      selected = [String(d.food || q).slice(0, 60), String(d.serving || "1 serving").slice(0, 50), k, true];
+      status = "ok"; setKcal(); updateHint();
+    }).catch(function (e) {
+      if (estCtl === ctl) estCtl = null; else return;
+      var code = e && e.code;
+      status = "error";
+      if (code === "cancelled") { status = "idle"; return; }
+      if (code === "not_granted" || code === "sampling_disabled" || code === "not_declared" || code === "capability_disabled" || code === "capability_removed") {
+        sampleOff = true; errMsg = "Calorie estimates are turned off here. Enter the calories yourself.";
+      } else if (code === "rate_limited") {
+        errMsg = "Too many estimates just now. Wait a moment, then tap Estimate.";
+      } else {
+        errMsg = "Couldn't reach the estimator. Tap Estimate to try again.";
+      }
+      updateHint();
+    });
+  }
+
+  function updateHint() {
+    var h = $("hint"), qty = getQty(), name = $("fName").value.trim();
+    if (selected && !manual) {
+      h.innerHTML = "<b>" + (selected[3] ? "~" : "") + fmt(selected[2]) + " kcal</b> per " + esc(selected[1]) + " of " + esc(selected[0]) +
+        (qty !== 1 ? " × " + qty + " = <b>" + (selected[3] ? "~" : "") + fmt(selected[2] * qty) + " kcal</b>" : "") +
+        (selected[3] ? " (estimate)" : "");
+    } else if (manual) {
+      h.textContent = "Using the calories you entered.";
+    } else if (status === "wait" || status === "busy") {
+      h.textContent = "Looking up calories…";
+    } else if (status === "error") {
+      h.innerHTML = esc(errMsg) + (sampleOff ? "" : ' <button type="button" class="linkbtn" id="estBtn">Estimate</button>');
+    } else if (name) {
+      h.innerHTML = (sampleFn && !sampleOff && name.length >= 3)
+        ? 'No match in the food list. <button type="button" class="linkbtn" id="estBtn">Estimate calories</button>'
+        : "No match in the food list. Enter the calories yourself.";
+    } else {
+      h.textContent = "Calories appear as you type.";
+    }
+  }
+  function onName() {
+    cancelEstimate();
+    var q = $("fName").value.trim().toLowerCase(), box = $("results");
+    status = "idle";
+    if (!q) { selected = null; box.hidden = true; box.innerHTML = ""; setKcal(); updateHint(); return; }
+    var hits = findHits(q);
+    selected = hits[0] || null;
+    box.hidden = !hits.length;
+    box.innerHTML = hits.map(function (f) {
+      return '<button type="button" class="result-row" data-db="' + DB.indexOf(f) + '"><span class="rn">' + esc(f[0]) + "<small>" + esc(f[1]) + '</small></span><span class="rk">' + f[2] + " kcal</span></button>";
+    }).join("");
+    if (!selected) scheduleEstimate(false);
+    setKcal(); updateHint();
+  }
+  $("fName").addEventListener("input", onName);
+  $("fQty").addEventListener("input", function () { setKcal(); updateHint(); });
+  $("fKcal").addEventListener("input", function () {
+    manual = $("fKcal").value.trim() !== "";
+    if (manual) cancelEstimate();
+    else { setKcal(); if (!selected) scheduleEstimate(false); }
+    updateHint();
+  });
+  $("hint").addEventListener("click", function (ev) {
+    if (!ev.target.closest("#estBtn")) return;
+    status = "idle"; scheduleEstimate(true); updateHint();
+  });
+  $("results").addEventListener("click", function (ev) {
+    var b = ev.target.closest("[data-db]"); if (!b) return;
+    cancelEstimate(); status = "idle";
+    selected = DB[+b.dataset.db]; manual = false;
+    $("fName").value = selected[0] + " (" + selected[1] + ")";
+    $("results").hidden = true;
+    setKcal(); updateHint();
+  });
+
+  $("mealSeg").addEventListener("click", function (ev) {
+    var b = ev.target.closest("button"); if (!b) return;
+    meal = b.dataset.meal; render();
+  });
+  $("addForm").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var name = $("fName").value.trim(), kcal = Math.round(parseFloat($("fKcal").value)), qty = getQty();
+    if (!name) return;
+    if (!(kcal > 0)) { if (sampleFn && !sampleOff) { status = "idle"; scheduleEstimate(true); updateHint(); } return; }
+    if (selected && !manual) {
+      name = labelOf(selected) + (qty !== 1 ? " × " + qty : "");
+    }
+    addEntry(name, kcal);
+    cancelEstimate(); status = "idle";
+    $("fName").value = ""; $("fQty").value = "1"; $("fKcal").value = "";
+    selected = null; manual = false;
+    $("results").hidden = true; $("results").innerHTML = "";
+    updateHint(); $("fName").focus();
+  });
+  $("log").addEventListener("click", function (ev) {
+    var b = ev.target.closest("[data-del]"); if (!b) return;
+    state.days[viewDay] = entries(viewDay).filter(function (e) { return e.id !== b.dataset.del; });
+    save(); render();
+  });
+  $("clearSample").addEventListener("click", function () {
+    Object.keys(state.days).forEach(function (k) { state.days[k] = state.days[k].filter(function (e) { return !e.sample; }); });
+    state.sample = false; save(); render();
+  });
+  $("prevDay").addEventListener("click", function () { viewDay = shift(viewDay, -1); render(); });
+  $("nextDay").addEventListener("click", function () { if (viewDay < today) { viewDay = shift(viewDay, 1); render(); } });
+
+  $("settingsBtn").addEventListener("click", function () {
+    var p = $("settingsPanel"), open = p.hidden;
+    p.hidden = !open;
+    this.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) $("goalInput").value = state.goal;
+  });
+  $("saveGoal").addEventListener("click", function () {
+    var g = Math.round(parseFloat($("goalInput").value));
+    if (g >= 800 && g <= 6000) { state.goal = g; save(); render(); }
+  });
+
+  var est = null;
+  function estimate() {
+    var a = +$("cAge").value, h = +$("cH").value, w = +$("cW").value;
+    if (!(a > 0 && h > 0 && w > 0)) { est = null; $("estimate").textContent = "Fill in the fields above"; $("useEstimate").disabled = true; return; }
+    var bmr = 10 * w + 6.25 * h - 5 * a + ($("cSex").value === "m" ? 5 : -161);
+    var tdee = bmr * parseFloat($("cAct").value);
+    est = Math.max(1200, Math.round((tdee + parseFloat($("cAim").value)) / 10) * 10);
+    $("estimate").textContent = fmt(est) + " kcal a day";
+    $("useEstimate").disabled = false;
+  }
+  ["cSex", "cAge", "cH", "cW", "cAct", "cAim"].forEach(function (id) {
+    $(id).addEventListener("input", estimate);
+    $(id).addEventListener("change", estimate);
+  });
+  $("useEstimate").addEventListener("click", function () {
+    if (!est) return;
+    state.goal = est; $("goalInput").value = est; save(); render();
+  });
+
+  load();
+  render();
+  if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+    window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+  }
+})();
+</script>
+
+</html>
